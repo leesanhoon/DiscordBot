@@ -42,7 +42,7 @@ async function getGeminiResponse(message) {
 
         return reply;
     } catch (error) {
-        console.error("Lỗi khi gọi API AI:", error);
+        console.error("Tôi bị ngu không trả lời dược đâu hihi.", error);
         return "Tôi bị ngu không trả lời dược đâu hihi.";
     }
 }
@@ -63,14 +63,19 @@ client.on("messageCreate", async (msg) => {
                 await msg.reply(replyChunk);
             }
         } catch (error) {
-            console.error("Lỗi khi xử lý tin nhắn:", error);
-            msg.reply("Có lỗi xảy ra khi xử lý tin nhắn của bạn.");
+            console.error("Tôi bị ngu không trả lời dược đâu hihi", error);
+            msg.reply("Tôi bị ngu không trả lời dược đâu hihi");
         }
     }
 });
 
 client.login(DISCORD_TOKEN).catch((error) => {
     console.error("Lỗi khi đăng nhập bot:", error);
+});
+
+// Health check endpoint
+app.get("/health", (req, res) => {
+    res.status(200).send("Bot is running");
 });
 
 // Start the Express server
