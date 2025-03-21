@@ -1,6 +1,10 @@
+const express = require("express");
 const Discord = require("discord.js");
 const axios = require("axios");
 require("dotenv").config(); // Để đọc biến môi trường từ .env
+
+const app = express();
+const port = process.env.PORT || 3000;
 
 const client = new Discord.Client({
     intents: [
@@ -68,3 +72,15 @@ client.on("messageCreate", async (msg) => {
 client.login(DISCORD_TOKEN).catch((error) => {
     console.error("Lỗi khi đăng nhập bot:", error);
 });
+
+// Start the Express server
+app.get("/", (req, res) => {
+    res.send("Discord bot is running");
+});
+
+app.listen(port, () => {
+    console.log(`Server is running on port ${port}`);
+});
+
+// Export the Express app for Vercel
+module.exports = app;
