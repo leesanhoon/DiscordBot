@@ -50,10 +50,17 @@ client.on("ready", () => {
 client.on("messageCreate", async (msg) => {
     if (msg.content.includes(`<@${client.user.id}>`)) {
         const query = msg.content.replace(`<@${client.user.id}>`, "").trim();
-        const geminiResponse = await getGeminiResponse(query);
-        console.log(geminiResponse);
-        msg.reply(geminiResponse);
+        try {
+            const geminiResponse = await getGeminiResponse(query);
+            console.log(geminiResponse);
+            msg.reply(geminiResponse);
+        } catch (error) {
+            console.error("Lỗi khi xử lý tin nhắn:", error);
+            msg.reply("Có lỗi xảy ra khi xử lý tin nhắn của bạn.");
+        }
     }
 });
 
-client.login(DISCORD_TOKEN);
+client.login(DISCORD_TOKEN).catch((error) => {
+    console.error("Lỗi khi đăng nhập bot:", error);
+});
