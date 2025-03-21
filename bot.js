@@ -53,7 +53,11 @@ client.on("messageCreate", async (msg) => {
         try {
             const geminiResponse = await getGeminiResponse(query);
             console.log(geminiResponse);
-            msg.reply(geminiResponse);
+            const maxLength = 2000;
+            for (let i = 0; i < geminiResponse.length; i += maxLength) {
+                const replyChunk = geminiResponse.substring(i, i + maxLength);
+                await msg.reply(replyChunk);
+            }
         } catch (error) {
             console.error("Lỗi khi xử lý tin nhắn:", error);
             msg.reply("Có lỗi xảy ra khi xử lý tin nhắn của bạn.");
