@@ -19,6 +19,13 @@ jobs:
                   username: ${{ secrets.DOCKER_HUB_USERNAME }}
                   password: ${{ secrets.DOCKER_HUB_TOKEN }}
 
+            - name: Verify SSH Key
+              run: |
+                if [ -z "${{ secrets.VPS_SSH_KEY }}" ]; then
+                  echo "SSH key is missing"
+                  exit 1
+                fi
+
             - name: Deploy to VPS
               uses: appleboy/ssh-action@master
               with:
