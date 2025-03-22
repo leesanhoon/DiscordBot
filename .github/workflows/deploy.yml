@@ -27,5 +27,6 @@ jobs:
                   key: ${{ secrets.VPS_SSH_KEY }}
                   script: |
                       docker pull nguyentanninh123/discordbot:latest
-                      docker-compose down
-                      docker-compose up -d
+                      docker stop discordbot || true
+                      docker rm discordbot || true
+                      docker run -d --name discordbot -p 3000:3000 nguyentanninh123/discordbot:latest
