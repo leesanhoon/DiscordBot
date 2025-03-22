@@ -64,13 +64,27 @@ client.on("messageCreate", async (msg) => {
             }
         } catch (error) {
             console.error("Tôi bị ngu không trả lời dược đâu hihi", error);
-            msg.reply("Tôi bị ngu không trả lời dược đâu hihi.");
+            msg.reply("Tôi bị ngu không trả lời dược đâu hihi");
         }
     }
 });
 
 client.login(DISCORD_TOKEN).catch((error) => {
     console.error("Lỗi khi đăng nhập bot:", error);
+});
+
+// Health check endpoint
+app.get("/health", (req, res) => {
+    res.status(200).send("Bot is running");
+});
+
+// Start the Express server
+app.get("/", (req, res) => {
+    res.send("Discord bot is running");
+});
+
+app.listen(port, () => {
+    console.log(`Server is running on port ${port}`);
 });
 
 // Export the Express app for Vercel
