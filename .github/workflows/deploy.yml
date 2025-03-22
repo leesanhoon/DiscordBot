@@ -19,6 +19,11 @@ jobs:
                   username: ${{ secrets.DOCKER_HUB_USERNAME }}
                   password: ${{ secrets.DOCKER_HUB_TOKEN }}
 
+            - name: Build and push Docker image
+              run: |
+                  docker build -t nguyentanninh123/discordbot:latest .
+                  docker push nguyentanninh123/discordbot:latest
+
             - name: Deploy to VPS
               uses: appleboy/ssh-action@master
               with:
