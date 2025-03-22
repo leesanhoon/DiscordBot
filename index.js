@@ -52,10 +52,7 @@ client.on("ready", () => {
 });
 
 client.on("messageCreate", async (msg) => {
-    if (
-        msg.content.includes(`<@${client.user.id}>`) ||
-        msg.content.includes("!kun")
-    ) {
+    if (msg.content.includes(`<@${client.user.id}>`)) {
         const query = msg.content.replace(`<@${client.user.id}>`, "").trim();
         try {
             const geminiResponse = await getGeminiResponse(query);

@@ -64,7 +64,11 @@
         ```
 
 3. **Lưu Private Key**:
-    - Nội dung file `id_rsa` sẽ được dùng trong GitHub Actions.
+    - Nội dung file `id_rsa` sẽ được dùng trong GitHub Actions lưu vào VPS_SSH_KEY.
+    - Sao chép nội dung của `id_rsa`:
+        ```bash
+        cat ~/.ssh/id_rsa.pub
+        ```
 
 ---
 
