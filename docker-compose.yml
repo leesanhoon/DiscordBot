@@ -1,10 +1,11 @@
+version: "3.8"
+
 services:
-    discordbot:
-        build: .
+    app:
+        image: nguyentanninh123/discordbot:latest
+        container_name: discordbot
+        restart: always
         ports:
             - "3000:3000"
-        env_file:
-            - .env
-        volumes:
-            - .:/app
-        command: ["npm", "start"]
+        environment:
+            NODE_ENV: production
