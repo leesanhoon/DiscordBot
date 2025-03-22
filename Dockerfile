@@ -13,9 +13,6 @@ RUN npm install
 # Sao chép toàn bộ mã nguồn
 COPY . .
 
-# Build ứng dụng (nếu cần)
-RUN npm run build
-
 # Expose port
 EXPOSE 3000
 
