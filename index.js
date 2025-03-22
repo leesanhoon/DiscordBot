@@ -64,7 +64,7 @@ client.on("messageCreate", async (msg) => {
             }
         } catch (error) {
             console.error("Tôi bị ngu không trả lời dược đâu hihi", error);
-            msg.reply("Tôi bị ngu không trả lời dược đâu hihi");
+            msg.reply("Tôi bị ngu không trả lời dược đâu hihi.");
         }
     }
 });

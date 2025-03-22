@@ -7,28 +7,6 @@
 3. **VPS**: A VPS with Docker installed and an SSH key for GitHub Actions access.
 4. **SSH Key**: An SSH key pair for GitHub Actions to connect to the VPS.
 
-## Project Structure
-
-Ensure you have the following structure:
-
-```
-.dockerignore
-.env
-.gitignore
-.gitlab-ci.yml
-docker-compose.yml
-Dockerfile
-index.js
-package.json
-README.md
-vercel.json
-.github/
-    workflows/
-        deploy.yml
-.vscode/
-    launch.json
-```
-
 ## Step 1: Prepare the Project
 
 1. **Dockerfile**:
