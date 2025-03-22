@@ -180,5 +180,3 @@
     2. Đẩy lên Docker Hub.
     3. Kéo image về VPS và chạy lại container.
 -   Quá trình hoàn toàn tự động, bạn chỉ cần kiểm tra logs nếu có lỗi.
-
-Nếu cần hỗ trợ thêm, cứ hỏi nhé! Chúc bạn thành công!
