@@ -53,3 +53,4 @@ jobs:
                       docker stop discordbot || true
                       docker rm discordbot || true
                       docker run -d --name discordbot -p 3000:3000 ${{ secrets.DOCKER_HUB_USERNAME }}/discordbot:latest
+                      docker ps -a
