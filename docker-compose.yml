@@ -1,9 +1,6 @@
 services:
-    app:
-        image: nguyentanninh123/discordbot:latest
-        container_name: discordbot
-        restart: always
-        ports:
-            - "3000:3000"
-        environment:
-            NODE_ENV: production
+    discordbot:
+        image: ${{ secrets.DOCKER_HUB_USERNAME }}/discordbot:latest
+        env_file: /home/root/config/.env
+        ports: ["3000:3000"]
+        restart: unless-stopped
