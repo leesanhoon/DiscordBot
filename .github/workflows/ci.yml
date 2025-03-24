@@ -55,9 +55,7 @@ jobs:
 
                       echo "🚀 Running new container..."
                       docker run -d --name discordbot \
-                        -e DISCORD_TOKEN="${{ secrets.DISCORD_TOKEN }}" \
-                        -e GEMINI_API_KEY="${{secrets.GEMINI_API_KEY}}" \
-                        -e GEMINI_API_ENDPOINT="${{secrets.GEMINI_API_ENDPOINT}}" \
+                        --env-file /home/root/config.env \
                         -p 3000:3000 ${{ secrets.DOCKER_HUB_USERNAME }}/discordbot:latest
 
                       echo "🔍 Checking running containers..."
