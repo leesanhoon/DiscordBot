@@ -81,7 +81,7 @@ jobs:
         runs-on: ubuntu-latest
         environment: production
         steps:
-            - name: Deploy to VPS
+            - name: Deploy to VPS with Docker Compose
               uses: appleboy/ssh-action@master
               with:
                   host: ${{ secrets.VPS_HOST }}
@@ -90,85 +90,86 @@ jobs:
                   script: |
                       # Thiết lập biến
                       IMAGE="${{ secrets.DOCKER_HUB_USERNAME }}/discordbot:latest"
-                      CONTAINER_NAME="discordbot"
-                      ENV_FILE="/home/root/config/.env"
+                      COMPOSE_FILE="/home/root/docker-compose.yml"
+                      SERVICE_NAME="discordbot"
                       BACKUP_TAG=$(date +%Y%m%d_%H%M%S)
                       BACKUP_IMAGE="${{ secrets.DOCKER_HUB_USERNAME }}/discordbot-backup:${BACKUP_TAG}"
 
                       # Debug giá trị biến
                       echo "IMAGE: $IMAGE"
                       echo "BACKUP_IMAGE: $BACKUP_IMAGE"
+                      echo "COMPOSE_FILE: $COMPOSE_FILE"
 
-                      # Kiểm tra file .env
-                      echo "🔍 Checking .env file..."
-                      if [ ! -f "$ENV_FILE" ]; then
-                        echo "Error: .env file not found at $ENV_FILE"
-                        exit 1
+                      # Kiểm tra file .env và docker-compose.yml
+                      echo "🔍 Checking required files..."
+                      if [ ! -f "/home/root/config/.env" ]; then
+                          echo "Error: .env file not found at /home/root/config/.env"
+                          exit 1
                       fi
-                      if [ ! -r "$ENV_FILE" ]; then
-                        echo "Error: .env file at $ENV_FILE is not readable"
-                        exit 1
+                      if [ ! -f "$COMPOSE_FILE" ]; then
+                          echo "Error: docker-compose.yml not found at $COMPOSE_FILE"
+                          exit 1
                       fi
 
                       # Pull image với retry
                       echo "🔄 Pulling latest Docker image..."
                       for i in {1..3}; do
-                        docker pull "$IMAGE" && break
-                        echo "Pull failed, retrying ($i/3)..."
-                        sleep 5
+                          docker-compose -f "$COMPOSE_FILE" pull "$SERVICE_NAME" && break
+                          echo "Pull failed, retrying ($i/3)..."
+                          sleep 5
                       done || {
-                        echo "Error: Failed to pull $IMAGE after 3 attempts"
-                        exit 1
+                          echo "Error: Failed to pull $IMAGE after 3 attempts"
+                          exit 1
                       }
 
-                      # Lưu container cũ để rollback
+                      # Backup container cũ
                       echo "📦 Backing up old container ID..."
-                      OLD_CONTAINER=$(docker ps -q -f name="$CONTAINER_NAME")
+                      OLD_CONTAINER=$(docker ps -q -f name="$SERVICE_NAME")
                       if [ -n "$OLD_CONTAINER" ]; then
-                        echo "Creating backup image: $BACKUP_IMAGE"
-                        docker commit "$CONTAINER_NAME" "$BACKUP_IMAGE" || {
-                          echo "Warning: Failed to create backup image"
-                        }
+                          echo "Creating backup image: $BACKUP_IMAGE"
+                          docker commit "$SERVICE_NAME" "$BACKUP_IMAGE" || {
+                              echo "Warning: Failed to create backup image"
+                          }
                       else
-                        echo "No old container found to backup"
+                          echo "No old container found to backup"
                       fi
 
-                      # Dừng và xóa container cũ
-                      echo "🛑 Stopping and removing old container..."
-                      docker stop "$CONTAINER_NAME" 2>/dev/null || true
-                      docker rm "$CONTAINER_NAME" 2>/dev/null || true
+                      # Dừng container cũ (nếu có)
+                      echo "🛑 Stopping old container..."
+                      docker-compose -f "$COMPOSE_FILE" stop "$SERVICE_NAME" 2>/dev/null || true
+                      docker-compose -f "$COMPOSE_FILE" rm -f "$SERVICE_NAME" 2>/dev/null || true
 
                       # Chạy container mới
-                      echo "🚀 Running new container..."
-                      docker run -d --name "$CONTAINER_NAME" \
-                        --env-file "$ENV_FILE" \
-                        -p 3000:3000 \
-                        --restart unless-stopped \
-                        "$IMAGE" || {
-                        echo "Error: Failed to start container"
-                        if [ -n "$OLD_CONTAINER" ]; then
-                          echo "⏪ Rolling back to previous container..."
-                          docker stop "$CONTAINER_NAME" 2>/dev/null || true
-                          docker rm "$CONTAINER_NAME" 2>/dev/null || true
-                          docker run -d --name "$CONTAINER_NAME" \
-                            -p 3000:3000 \
-                            "$BACKUP_IMAGE" || echo "Rollback failed"
-                        fi
-                        exit 1
+                      echo "🚀 Deploying with Docker Compose..."
+                      docker-compose -f "$COMPOSE_FILE" up -d "$SERVICE_NAME" || {
+                          echo "Error: Failed to start container"
+                          if [ -n "$OLD_CONTAINER" ]; then
+                              echo "⏪ Rolling back to previous container..."
+                              docker-compose -f "$COMPOSE_FILE" stop "$SERVICE_NAME" 2>/dev/null || true
+                              docker-compose -f "$COMPOSE_FILE" rm -f "$SERVICE_NAME" 2>/dev/null || true
+                              # Thay image bằng backup và chạy lại
+                              sed -i "s|image:.*|image: $BACKUP_IMAGE|" "$COMPOSE_FILE"
+                              docker-compose -f "$COMPOSE_FILE" up -d "$SERVICE_NAME" || {
+                                  echo "Rollback failed"
+                              }
+                              # Khôi phục image gốc trong compose file
+                              sed -i "s|image:.*|image: $IMAGE|" "$COMPOSE_FILE"
+                          fi
+                          exit 1
                       }
 
                       # Chờ và kiểm tra health
                       echo "⏳ Waiting for container to stabilize..."
                       sleep 10
-                      STATUS=$(docker inspect "$CONTAINER_NAME" --format '{{.State.Status}}' || echo "not_found")
+                      STATUS=$(docker inspect "$SERVICE_NAME" --format '{{.State.Status}}' || echo "not_found")
                       if [ "$STATUS" != "running" ]; then
-                        echo "Error: Container is not running (Status: $STATUS)"
-                        exit 1
+                          echo "Error: Container is not running (Status: $STATUS)"
+                          exit 1
                       fi
 
                       # Kiểm tra logs
                       echo "📜 Checking Docker logs..."
-                      docker logs --tail=50 "$CONTAINER_NAME" || echo "⚠️ No logs available yet"
+                      docker-compose -f "$COMPOSE_FILE" logs --tail=50 "$SERVICE_NAME" || echo "⚠️ No logs available yet"
 
                       # Kiểm tra container
                       echo "🔍 Checking running containers..."

@@ -1,6 +1,37 @@
+version: "3.8" # Phiên bản mới nhất, hỗ trợ các tính năng hiện đại
+
 services:
     discordbot:
-        image: ${{ secrets.DOCKER_HUB_USERNAME }}/discordbot:latest
-        env_file: /home/root/config/.env
-        ports: ["3000:3000"]
+        image: ${{ secrets.DOCKER_HUB_USERNAME }}/discordbot:${TAG:-latest} # Hỗ trợ versioning
+        env_file:
+            - /home/root/config/.env # Đường dẫn tuyệt đối trên host
+        ports:
+            - "${PORT:-3000}:3000" # Linh hoạt port từ biến môi trường
         restart: unless-stopped
+        user: "1000:1000" # Chạy với user non-root (tùy chỉnh theo UID/GID)
+        deploy:
+            resources:
+                limits:
+                    cpus: "0.5" # Giới hạn 0.5 CPU
+                    memory: 512M # Giới hạn 512MB RAM
+                reservations:
+                    cpus: "0.1" # Đảm bảo tối thiểu 0.1 CPU
+                    memory: 128M # Đảm bảo tối thiểu 128MB RAM
+        healthcheck:
+            test: ["CMD", "curl", "-f", "http://localhost:3000/health"] # Kiểm tra endpoint health
+            interval: 30s
+            timeout: 5s
+            retries: 3
+            start_period: 10s
+        logging:
+            driver: "json-file" # Driver log mặc định
+            options:
+                max-size: "10m" # Giới hạn mỗi file log 10MB
+                max-file: "3" # Giữ tối đa 3 file log
+        networks:
+            - app-network # Định nghĩa network riêng
+
+# Định nghĩa network
+networks:
+    app-network:
+        driver: bridge
