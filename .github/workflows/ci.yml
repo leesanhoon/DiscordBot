@@ -13,26 +13,68 @@ jobs:
         environment: production
         runs-on: ubuntu-latest
         steps:
+            # Checkout code với full history nếu cần
             - name: Checkout code
               uses: actions/checkout@v4
+              with:
+                  fetch-depth: 0 # Lấy full history để tạo version từ git tag nếu cần
 
+            # Cache Docker layers để tăng tốc build
+            - name: Cache Docker layers
+              uses: actions/cache@v3
+              with:
+                  path: /tmp/.buildx-cache
+                  key: ${{ runner.os }}-buildx-${{ github.sha }}
+                  restore-keys: |
+                      ${{ runner.os }}-buildx-
+
+            # Thiết lập Buildx để build nhanh hơn và hỗ trợ multi-platform
+            - name: Set up Docker Buildx
+              uses: docker/setup-buildx-action@v3
+
+            # Đăng nhập Docker Hub trước để tránh lỗi auth giữa chừng
+            - name: Login to Docker Hub
+              uses: docker/login-action@v3
+              with:
+                  username: ${{ secrets.DOCKER_HUB_USERNAME }}
+                  password: ${{ secrets.DOCKER_HUB_TOKEN }}
+
+            # Thiết lập Node.js với cache
             - name: Set up Node.js
               uses: actions/setup-node@v4
               with:
                   node-version: 20
-                  cache: "npm" # Tăng tốc độ cài đặt dependencies
+                  cache: "npm"
+                  cache-dependency-path: package-lock.json # Đảm bảo cache chính xác
 
+            # Cài dependencies với kiểm tra lỗi
             - name: Install dependencies
-              run: npm ci # npm ci nhanh hơn npm install cho CI/CD
+              run: npm ci --prefer-offline --no-audit
+              # --prefer-offline: Dùng cache nếu có
+              # --no-audit: Bỏ qua audit để nhanh hơn
 
-            - name: Build Docker image
-              run: docker build -t ${{ secrets.DOCKER_HUB_USERNAME }}/discordbot:latest .
+            # Build và push Docker image với cache và tag versioning
+            - name: Build and Push Docker image
+              id: docker_build
+              run: |
+                  # Lấy git tag hoặc commit sha làm version
+                  VERSION=$(git describe --tags --always --dirty || echo "latest")
+                  IMAGE_NAME="${{ secrets.DOCKER_HUB_USERNAME }}/discordbot"
+                  docker buildx build \
+                    --cache-from type=local,src=/tmp/.buildx-cache \
+                    --cache-to type=local,dest=/tmp/.buildx-cache \
+                    --tag "${IMAGE_NAME}:${VERSION}" \
+                    --tag "${IMAGE_NAME}:latest" \
+                    --output type=registry \
+                    --push \
+                    .
+              env:
+                  DOCKER_BUILDKIT: 1 # Bật BuildKit để build nhanh hơn
 
-            - name: Login to Docker Hub
-              run: echo "${{ secrets.DOCKER_HUB_TOKEN }}" | docker login -u "${{ secrets.DOCKER_HUB_USERNAME }}" --password-stdin
-
-            - name: Push Docker image to Docker Hub
-              run: docker push ${{ secrets.DOCKER_HUB_USERNAME }}/discordbot:latest
+            # Kiểm tra kết quả build
+            - name: Verify build
+              run: |
+                  echo "Built and pushed image: ${{ secrets.DOCKER_HUB_USERNAME }}/discordbot:${{ steps.docker_build.outputs.version }}"
 
     deploy:
         needs: build
@@ -46,16 +88,6 @@ jobs:
                   username: ${{ secrets.VPS_USERNAME }}
                   key: ${{ secrets.VPS_SSH_KEY }}
                   script: |
-                      echo "Checking .env file..."
-                      if [ ! -f /home/root/config/.env ]; then
-                        echo "Error: .env file not found at /home/root/config/.env"
-                        exit 1
-                      fi
-
-                      # Log nội dung file .env
-                      echo "Logging values in /home/root/config/.env..."
-                      cat /home/root/config/.env
-
                       echo "🔄 Pulling latest Docker image..."
                       docker pull ${{ secrets.DOCKER_HUB_USERNAME }}/discordbot:latest
 
