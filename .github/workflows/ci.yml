@@ -52,8 +52,23 @@ jobs:
                   username: ${{ secrets.VPS_USERNAME }}
                   key: ${{ secrets.VPS_SSH_KEY }}
                   script: |
+                      echo "🔄 Pulling latest Docker image..."
                       docker pull ${{ secrets.DOCKER_HUB_USERNAME }}/discordbot:latest
+
+                      echo "🛑 Stopping old container..."
                       docker stop discordbot || true
                       docker rm discordbot || true
+
+                      echo "🚀 Running new container..."
                       docker run -d --name discordbot -p 3000:3000 ${{ secrets.DOCKER_HUB_USERNAME }}/discordbot:latest
+
+                      echo "🔍 Checking running containers..."
                       docker ps -a
+
+                      echo "📜 Checking Docker logs..."
+                      docker logs --tail=50 discordbot || echo "⚠️ No logs found."
+
+                      echo "🛠 Checking container status..."
+                      docker inspect discordbot --format '{{.State.Status}}' || echo "⚠️ Container not found."
+
+                      echo "🎯 Deployment completed!"
