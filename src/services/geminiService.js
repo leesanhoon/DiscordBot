@@ -32,7 +32,7 @@ const generateImage = async (message, msg) => {
                 const attachment = new AttachmentBuilder(buffer, {
                     name: "native-image.png",
                 });
-                await msg.channel.send({ files: [attachment] });
+                await msg.reply({ files: [attachment] });
             }
         }
     } catch (error) {
