@@ -20,6 +20,7 @@ const startBot = () => {
     });
 
     client.login(DISCORD_TOKEN).catch((error) => {
+        console.log("Token", DISCORD_TOKEN);
         console.error("Lỗi khi đăng nhập bot:", error);
         console.log("Token", DISCORD_TOKEN);
     });
