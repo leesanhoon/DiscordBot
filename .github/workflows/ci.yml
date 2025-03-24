@@ -63,6 +63,11 @@ jobs:
                       else
                           echo "✅ DISCORD_TOKEN is set."
                       fi
+                      if [ -z "$secrets.DOCKER_HUB_USERNAME" ]; then
+                          echo "⚠️ secrets.DOCKER_HUB_USERNAME is not set!"
+                      else
+                          echo "✅ DISCORD_TOKEN is set."
+                      fi
 
                       echo "🚀 Running new container..."
                       docker run -d --name discordbot \
