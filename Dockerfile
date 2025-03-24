@@ -13,9 +13,6 @@ RUN npm install
 # Sao chép toàn bộ mã nguồn
 COPY . .
 
-# Copy the .env file
-COPY .env .env
-
 # Expose port
 EXPOSE 3000
 
