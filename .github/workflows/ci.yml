@@ -52,6 +52,10 @@ jobs:
                         exit 1
                       fi
 
+                      # Log nội dung file .env
+                      echo "Logging values in /home/root/config/.env..."
+                      cat /home/root/config/.env
+
                       echo "🔄 Pulling latest Docker image..."
                       docker pull ${{ secrets.DOCKER_HUB_USERNAME }}/discordbot:latest
 
