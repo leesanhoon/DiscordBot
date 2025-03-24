@@ -3,10 +3,10 @@ const { generateContent, generateImage } = require("../services/geminiService");
 const handleMessage = async (client, msg) => {
     if (!msg.content.includes(`<@${client.user.id}>`)) return;
 
-    const isImageRequest = msg.content.includes("!img");
+    const isImageRequest = msg.content.includes("img");
     const query = msg.content
         .replace(`<@${client.user.id}>`, "")
-        .replace(isImageRequest ? "!img" : "", "")
+        .replace(isImageRequest ? "img" : "", "")
         .trim();
 
     try {
