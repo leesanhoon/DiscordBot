@@ -1,20 +1,20 @@
-# Use the official Node.js image as the base image
-FROM node:16
+# Dockerfile
+FROM node:18
 
-# Set the working directory
+# Tạo thư mục ứng dụng
 WORKDIR /app
 
-# Copy package.json and package-lock.json
+# Sao chép package.json và package-lock.json
 COPY package*.json ./
 
-# Install dependencies
+# Cài đặt các dependencies
 RUN npm install
 
-# Copy the rest of the application code
+# Sao chép toàn bộ mã nguồn
 COPY . .
 
-# Expose the port the app runs on
+# Expose port
 EXPOSE 3000
 
-# Define the command to run the application
-CMD ["node", "bot.js"]
+# Chạy ứng dụng
+CMD ["npm", "start"]

@@ -1,0 +1,9 @@
+services:
+    app:
+        image: nguyentanninh123/discordbot:latest
+        container_name: discordbot
+        restart: always
+        ports:
+            - "3000:3000"
+        environment:
+            NODE_ENV: production
