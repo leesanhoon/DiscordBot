@@ -46,6 +46,12 @@ jobs:
                   username: ${{ secrets.VPS_USERNAME }}
                   key: ${{ secrets.VPS_SSH_KEY }}
                   script: |
+                      echo "Checking .env file..."
+                      if [ ! -f /home/root/config/.env ]; then
+                        echo "Error: .env file not found at /home/root/config/.env"
+                        exit 1
+                      fi
+
                       echo "🔄 Pulling latest Docker image..."
                       docker pull ${{ secrets.DOCKER_HUB_USERNAME }}/discordbot:latest
 
