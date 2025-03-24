@@ -57,6 +57,13 @@ jobs:
                       docker stop discordbot || true
                       docker rm discordbot || true
 
+                      # Kiểm tra xem biến DISCORD_TOKEN có tồn tại không
+                      if [ -z "$DISCORD_TOKEN" ]; then
+                          echo "⚠️ DISCORD_TOKEN is not set!"
+                      else
+                          echo "✅ DISCORD_TOKEN is set."
+                      fi
+
                       echo "🚀 Running new container..."
                       docker run -d --name discordbot \
                         -e DISCORD_TOKEN="$DISCORD_TOKEN" \
