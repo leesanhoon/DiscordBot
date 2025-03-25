@@ -30,13 +30,6 @@
     .gitignore
     ```
 
-3. **Local Testing**:
-
-    ```bash
-    docker build -t my-node-app .
-    docker run -p 3000:3000 my-node-app
-    ```
-
 ## Step 2: Create SSH Key for VPS
 
 1. **Generate SSH Key**:
@@ -59,7 +52,7 @@
     chmod 700 ~/.ssh
     ```
 
-3. **Save Private Key**:
+3. **Save Private Key** lưu git action:
 
     ```bash
     cat ~/.ssh/id_rsa
@@ -72,43 +65,179 @@
     Create `.github/workflows/deploy.yml`:
 
     ```yaml
-    name: Deploy Node.js App
-
-    on:
+    name: CI/CD Pipeline
+        on:
         push:
-            branches:
-                - main
+        branches: - main
+        pull_request:
+        branches: - main
 
-    jobs:
-        build-and-deploy:
-            runs-on: ubuntu-latest
-            environment: production
-            steps:
-                - name: Checkout code
-                  uses: actions/checkout@v2
+        jobs:
+        build:
+        environment: production
+        runs-on: ubuntu-latest
+        steps: # Checkout code với full history nếu cần - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+        fetch-depth: 0 # Lấy full history để tạo version từ git tag nếu cần
 
-                - name: Login to Docker Hub
-                  uses: docker/login-action@v1
-                  with:
-                      username: ${{ secrets.DOCKER_HUB_USERNAME }}
-                      password: ${{ secrets.DOCKER_HUB_TOKEN }}
+                    # Cache Docker layers để tăng tốc build
+                    - name: Cache Docker layers
+                    uses: actions/cache@v3
+                    with:
+                        path: /tmp/.buildx-cache
+                        key: ${{ runner.os }}-buildx-${{ github.sha }}
+                        restore-keys: |
+                            ${{ runner.os }}-buildx-
 
-                - name: Build and push Docker image
-                  run: |
-                      docker build -t nguyentanninh123/discordbot:latest .
-                      docker push nguyentanninh123/discordbot:latest
+                    # Thiết lập Buildx để build nhanh hơn và hỗ trợ multi-platform
+                    - name: Set up Docker Buildx
+                    uses: docker/setup-buildx-action@v3
 
-                - name: Deploy to VPS
-                  uses: appleboy/ssh-action@master
-                  with:
-                      host: ${{ secrets.VPS_HOST }}
-                      username: ${{ secrets.VPS_USERNAME }}
-                      key: ${{ secrets.VPS_SSH_KEY }}
-                      script: |
-                          docker pull nguyentanninh123/discordbot:latest
-                          docker stop discordbot || true
-                          docker rm discordbot || true
-                          docker run -d --name discordbot -p 3000:3000 nguyentanninh123/discordbot:latest
+                    # Đăng nhập Docker Hub trước để tránh lỗi auth giữa chừng
+                    - name: Login to Docker Hub
+                    uses: docker/login-action@v3
+                    with:
+                        username: ${{ secrets.DOCKER_HUB_USERNAME }}
+                        password: ${{ secrets.DOCKER_HUB_TOKEN }}
+
+                    # Thiết lập Node.js với cache
+                    - name: Set up Node.js
+                    uses: actions/setup-node@v4
+                    with:
+                        node-version: 20
+                        cache: "npm"
+                        cache-dependency-path: package-lock.json # Đảm bảo cache chính xác
+
+                    # Cài dependencies với kiểm tra lỗi
+                    - name: Install dependencies
+                    run: npm ci --prefer-offline --no-audit
+                    # --prefer-offline: Dùng cache nếu có
+                    # --no-audit: Bỏ qua audit để nhanh hơn
+
+                    # Build và push Docker image với cache và tag versioning
+                    - name: Build and Push Docker image
+                    id: docker_build
+                    run: |
+                        # Lấy git tag hoặc commit sha làm version
+                        VERSION=$(git describe --tags --always --dirty || echo "latest")
+                        IMAGE_NAME="${{ secrets.DOCKER_HUB_USERNAME }}/discordbot"
+                        docker buildx build \
+                            --cache-from type=local,src=/tmp/.buildx-cache \
+                            --cache-to type=local,dest=/tmp/.buildx-cache \
+                            --tag "${IMAGE_NAME}:${VERSION}" \
+                            --tag "${IMAGE_NAME}:latest" \
+                            --output type=registry \
+                            --push \
+                            .
+                    env:
+                        DOCKER_BUILDKIT: 1 # Bật BuildKit để build nhanh hơn
+
+                    # Kiểm tra kết quả build
+                    - name: Verify build
+                    run: |
+                        echo "Built and pushed image: ${{ secrets.DOCKER_HUB_USERNAME }}/discordbot:${{ steps.docker_build.outputs.version }}"
+
+            deploy:
+                needs: build
+                runs-on: ubuntu-latest
+                environment: production
+                steps:
+                    - name: Deploy to VPS
+                    uses: appleboy/ssh-action@master
+                    with:
+                        host: ${{ secrets.VPS_HOST }}
+                        username: root
+                        key: ${{ secrets.VPS_SSH_KEY }}
+                        script: |
+                            # Thiết lập biến
+                            IMAGE="${{ secrets.DOCKER_HUB_USERNAME }}/discordbot:latest"
+                            CONTAINER_NAME="discordbot"
+                            ENV_FILE="/home/root/config/.env"
+                            BACKUP_TAG=$(date +%Y%m%d_%H%M%S)
+                            BACKUP_IMAGE="${{ secrets.DOCKER_HUB_USERNAME }}/discordbot-backup:${BACKUP_TAG}"
+
+                            # Debug giá trị biến
+                            echo "IMAGE: $IMAGE"
+                            echo "BACKUP_IMAGE: $BACKUP_IMAGE"
+
+                            # Kiểm tra file .env
+                            echo "🔍 Checking .env file..."
+                            if [ ! -f "$ENV_FILE" ]; then
+                                echo "Error: .env file not found at $ENV_FILE"
+                                exit 1
+                            fi
+                            if [ ! -r "$ENV_FILE" ]; then
+                                echo "Error: .env file at $ENV_FILE is not readable"
+                                exit 1
+                            fi
+
+                            # Pull image với retry
+                            echo "🔄 Pulling latest Docker image..."
+                            for i in {1..3}; do
+                                docker pull "$IMAGE" && break
+                                echo "Pull failed, retrying ($i/3)..."
+                                sleep 5
+                            done || {
+                                echo "Error: Failed to pull $IMAGE after 3 attempts"
+                                exit 1
+                            }
+
+                            # Lưu container cũ để rollback
+                            echo "📦 Backing up old container ID..."
+                            OLD_CONTAINER=$(docker ps -q -f name="$CONTAINER_NAME")
+                            if [ -n "$OLD_CONTAINER" ]; then
+                                echo "Creating backup image: $BACKUP_IMAGE"
+                                docker commit "$CONTAINER_NAME" "$BACKUP_IMAGE" || {
+                                echo "Warning: Failed to create backup image"
+                                }
+                            else
+                                echo "No old container found to backup"
+                            fi
+
+                            # Dừng và xóa container cũ
+                            echo "🛑 Stopping and removing old container..."
+                            docker stop "$CONTAINER_NAME" 2>/dev/null || true
+                            docker rm "$CONTAINER_NAME" 2>/dev/null || true
+
+                            # Chạy container mới
+                            echo "🚀 Running new container..."
+                            docker run -d --name "$CONTAINER_NAME" \
+                                --env-file "$ENV_FILE" \
+                                -p 3000:3000 \
+                                --restart unless-stopped \
+                                "$IMAGE" || {
+                                echo "Error: Failed to start container"
+                                if [ -n "$OLD_CONTAINER" ]; then
+                                echo "⏪ Rolling back to previous container..."
+                                docker stop "$CONTAINER_NAME" 2>/dev/null || true
+                                docker rm "$CONTAINER_NAME" 2>/dev/null || true
+                                docker run -d --name "$CONTAINER_NAME" \
+                                    -p 3000:3000 \
+                                    "$BACKUP_IMAGE" || echo "Rollback failed"
+                                fi
+                                exit 1
+                            }
+
+                            # Chờ và kiểm tra health
+                            echo "⏳ Waiting for container to stabilize..."
+                            sleep 10
+                            STATUS=$(docker inspect "$CONTAINER_NAME" --format '{{.State.Status}}' || echo "not_found")
+                            if [ "$STATUS" != "running" ]; then
+                                echo "Error: Container is not running (Status: $STATUS)"
+                                exit 1
+                            fi
+
+                            # Kiểm tra logs
+                            echo "📜 Checking Docker logs..."
+                            docker logs --tail=50 "$CONTAINER_NAME" || echo "⚠️ No logs available yet"
+
+                            # Kiểm tra container
+                            echo "🔍 Checking running containers..."
+                            docker ps -a
+
+                            echo "🎯 Deployment completed successfully!"
+
     ```
 
 ## Step 4: Add Secrets to GitHub

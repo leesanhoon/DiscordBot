@@ -1,4 +1,4 @@
-const {generateContent} = require("../services/geminiService");
+const { generateContent } = require("../services/geminiService");
 
 const handleMessage = async (client, msg) => {
     if (!msg.content.includes(`<@${client.user.id}>`)) return;
