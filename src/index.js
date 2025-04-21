@@ -12,7 +12,7 @@ const {
 // Model configurations
 const MODELS = {
     TEXT: {
-        name: "gemini-2.0-flash-exp-image-generation",
+        name: "gemini-2.0-flash",
         config: {
             temperature: 0.7,
             topK: 40,
