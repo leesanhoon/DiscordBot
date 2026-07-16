@@ -3,15 +3,15 @@ const { OPENROUTER_API_KEY } = require("../config/env");
 
 const MODELS = {
   TEXT: {
-    name: "poolside/laguna-xs-2.1:freee",
+    name: "tencent/hy3:free",
     config: { temperature: 0.7, top_p: 0.95, max_tokens: 4096 },
   },
   VISION: {
-    name: "alibaba/happyhorse-1.1",
+    name: "nvidia/nemotron-3-ultra-550b-a55b:free",
     config: { temperature: 0.4, top_p: 0.8, max_tokens: 2048 },
   },
   CREATIVE: {
-    name: "alibaba/happyhorse-1.1",
+    name: "nvidia/nemotron-3-ultra-550b-a55b:free",
     config: { temperature: 0.9, top_p: 1.0, max_tokens: 8192 },
   },
   ANALYSIS: {
