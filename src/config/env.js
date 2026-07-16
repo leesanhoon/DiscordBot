@@ -2,7 +2,6 @@ require("dotenv").config();
 
 module.exports = {
     DISCORD_TOKEN: process.env.DISCORD_TOKEN,
-    GEMINI_API_KEY: process.env.GEMINI_API_KEY,
-    GEMINI_API_ENDPOINT: process.env.GEMINI_API_ENDPOINT,
+    OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY,
     PORT: process.env.PORT || 3000,
 };
