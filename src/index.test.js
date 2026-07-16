@@ -115,6 +115,27 @@ test("handleMessage ignores a message with no mention and no reply-to-bot", asyn
   assert.equal(replied, false);
 });
 
+test("handleMessage does a single cheap fetch (not a full walk) when replying to a non-bot message without a mention", async () => {
+  let fetchCount = 0;
+  const parent = makeMessage({ id: "1", authorId: "user-2", content: "khong phai bot", reference: null });
+  const msg = makeMessage({ id: "2", authorId: "user-1", content: "vay con cai nay thi sao", reference: "1" });
+  let replied = false;
+  msg.reply = async () => { replied = true; };
+  msg.channel = {
+    messages: {
+      fetch: async (id) => {
+        fetchCount += 1;
+        return parent;
+      },
+    },
+  };
+
+  await handleMessage(client, msg);
+
+  assert.equal(fetchCount, 1);
+  assert.equal(replied, false);
+});
+
 test("handleMessage responds when the message replies directly to the bot, without a mention", async (t) => {
   const capturedCalls = [];
   t.mock.method(axios, "post", async (url, body) => {

@@ -104,7 +104,32 @@ const generateContent = async (message, msg, history = []) => {
 // Simplified message handling
 const handleMessage = async (client, msg) => {
   const hasMention = msg.content.includes(`<@${client.user.id}>`);
-  const replyContext = await getReplyContext(msg, client);
+
+  // Cheap early-exit: no mention and no reply at all means the bot won't
+  // respond, so skip any fetching entirely.
+  if (!hasMention && !msg.reference?.messageId) return;
+
+  let replyContext = { isReplyToBot: false, history: [] };
+
+  if (hasMention) {
+    replyContext = await getReplyContext(msg, client);
+  } else {
+    // No mention, but there is a reference: do a single cheap fetch of just
+    // the immediate parent to check if it's a reply to the bot, before
+    // paying for the full (up to 3-hop) walk.
+    let immediateParent;
+    try {
+      immediateParent = await msg.channel.messages.fetch(
+        msg.reference.messageId
+      );
+    } catch (error) {
+      return;
+    }
+
+    if (immediateParent.author.id !== client.user.id) return;
+
+    replyContext = await getReplyContext(msg, client);
+  }
 
   if (!hasMention && !replyContext.isReplyToBot) return;
 
