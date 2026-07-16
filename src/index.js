@@ -7,22 +7,25 @@ const { buildVisionContent } = require("./ai/buildVisionContent");
 const { chunkMessage } = require("./ai/chunkMessage");
 
 // Determine message type and select appropriate model
-const detectMessageType = (message) => {
+const detectMessageType = (message, hasAttachments = false) => {
+  // Ảnh đính kèm là tín hiệu chắc chắn nhất, ưu tiên hơn mọi từ khóa trong text
+  if (hasAttachments) return "VISION";
+
   const patterns = {
-    VISION: /(xem|nhìn|hình ảnh|ảnh|image|picture|photo)/i,
-    CREATIVE: /(viết|sáng tác|content|tạo|create|write|compose)/i,
-    ANALYSIS: /(phân tích|analyze|compare|tổng hợp|thống kê|đánh giá|review)/i,
+    VISION: /\b(xem ảnh|nhìn ảnh|phân tích ảnh|hình ảnh này|bức ảnh|tấm ảnh|cái ảnh|image|picture|photo)\b/i,
+    ANALYSIS: /\b(phân tích|so sánh|compare|analyze|tổng hợp|thống kê|đánh giá|review)\b/i,
+    CREATIVE: /\b(viết (truyện|thơ|bài|kịch bản|lời|đoạn)|sáng tác|làm thơ|compose|write (a|an|me) )\b/i,
   };
 
   if (patterns.VISION.test(message)) return "VISION";
-  if (patterns.CREATIVE.test(message)) return "CREATIVE";
   if (patterns.ANALYSIS.test(message)) return "ANALYSIS";
+  if (patterns.CREATIVE.test(message)) return "CREATIVE";
   return "TEXT"; // Default to text model
 };
 
 // Optimized message handling with OpenRouter
 const generateContent = async (message, msg) => {
-  const messageType = detectMessageType(message);
+  const messageType = detectMessageType(message, msg.attachments.size > 0);
 
   try {
     let imageParts = [];
