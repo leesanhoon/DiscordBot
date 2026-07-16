@@ -3,7 +3,8 @@ process.env.OPENROUTER_API_KEY = "test-key";
 
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
-const { getReplyContext } = require("./index");
+const { getReplyContext, generateContent, handleMessage } = require("./index");
+const axios = require("axios");
 
 const BOT_ID = "bot-1";
 const client = { user: { id: BOT_ID } };
@@ -101,4 +102,45 @@ test("getReplyContext uses placeholders for empty-content messages", async () =>
     { role: "user", content: "[hình ảnh]" },
     { role: "assistant", content: "[tin nhắn trống]" },
   ]);
+});
+
+test("handleMessage ignores a message with no mention and no reply-to-bot", async () => {
+  let replied = false;
+  const msg = makeMessage({ id: "1", authorId: "user-1", content: "chao nha", reference: null });
+  msg.reply = async () => { replied = true; };
+  msg.channel = { messages: { fetch: async () => { throw new Error("should not fetch"); } } };
+
+  await handleMessage(client, msg);
+
+  assert.equal(replied, false);
+});
+
+test("handleMessage responds when the message replies directly to the bot, without a mention", async () => {
+  const parent = makeMessage({ id: "1", authorId: BOT_ID, content: "cau hoi truoc", reference: null });
+  const replies = [];
+  const msg = makeMessage({ id: "2", authorId: "user-1", content: "vay con cai nay thi sao", reference: "1" });
+  msg.reply = async (text) => { replies.push(text); };
+  msg.channel = { messages: { fetch: async () => parent } };
+
+  await handleMessage(client, msg);
+
+  assert.equal(replies.length > 0, true);
+});
+
+test("generateContent forwards reply history down to the OpenRouter call", async (t) => {
+  const capturedCalls = [];
+  t.mock.method(axios, "post", async (url, body) => {
+    capturedCalls.push(body);
+    return { data: { choices: [{ message: { content: "ok" } }] } };
+  });
+
+  const msg = makeMessage({ id: "2", authorId: "user-1", content: "tiep tuc", reference: "1" });
+  msg.reply = async () => {};
+
+  const history = [{ role: "assistant", content: "tin nhan cu" }];
+
+  await generateContent("tiep tuc", msg, history);
+
+  assert.equal(capturedCalls[0].messages.length, 3);
+  assert.deepEqual(capturedCalls[0].messages[1], { role: "assistant", content: "tin nhan cu" });
 });

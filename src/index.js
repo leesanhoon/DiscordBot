@@ -60,7 +60,7 @@ const getReplyContext = async (msg, client) => {
 };
 
 // Optimized message handling with OpenRouter
-const generateContent = async (message, msg) => {
+const generateContent = async (message, msg, history = []) => {
   const messageType = detectMessageType(message, msg.attachments.size > 0);
 
   try {
@@ -83,7 +83,7 @@ const generateContent = async (message, msg) => {
       }
     }
 
-    const reply = await generateReply(messageType, message, imageParts);
+    const reply = await generateReply(messageType, message, imageParts, history);
     const chunks = chunkMessage(reply);
 
     for (const chunk of chunks) {
@@ -103,7 +103,10 @@ const generateContent = async (message, msg) => {
 
 // Simplified message handling
 const handleMessage = async (client, msg) => {
-  if (!msg.content.includes(`<@${client.user.id}>`)) return;
+  const hasMention = msg.content.includes(`<@${client.user.id}>`);
+  const replyContext = await getReplyContext(msg, client);
+
+  if (!hasMention && !replyContext.isReplyToBot) return;
 
   const query = msg.content.replace(`<@${client.user.id}>`, "").trim();
   if (!query) {
@@ -112,7 +115,7 @@ const handleMessage = async (client, msg) => {
   }
 
   try {
-    await generateContent(query, msg);
+    await generateContent(query, msg, replyContext.history);
   } catch (error) {
     console.error("Message handling error:", error);
     msg.reply("Đã xảy ra lỗi không mong muốn. Vui lòng thử lại sau.");
