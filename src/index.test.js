@@ -115,7 +115,13 @@ test("handleMessage ignores a message with no mention and no reply-to-bot", asyn
   assert.equal(replied, false);
 });
 
-test("handleMessage responds when the message replies directly to the bot, without a mention", async () => {
+test("handleMessage responds when the message replies directly to the bot, without a mention", async (t) => {
+  const capturedCalls = [];
+  t.mock.method(axios, "post", async (url, body) => {
+    capturedCalls.push(body);
+    return { data: { choices: [{ message: { content: "day la cau tra loi" } }] } };
+  });
+
   const parent = makeMessage({ id: "1", authorId: BOT_ID, content: "cau hoi truoc", reference: null });
   const replies = [];
   const msg = makeMessage({ id: "2", authorId: "user-1", content: "vay con cai nay thi sao", reference: "1" });
@@ -124,7 +130,36 @@ test("handleMessage responds when the message replies directly to the bot, witho
 
   await handleMessage(client, msg);
 
-  assert.equal(replies.length > 0, true);
+  assert.deepEqual(replies, ["day la cau tra loi"]);
+  assert.equal(capturedCalls.length, 1);
+  assert.deepEqual(capturedCalls[0].messages[capturedCalls[0].messages.length - 2], {
+    role: "assistant",
+    content: "cau hoi truoc",
+  });
+});
+
+test("handleMessage responds when the message both mentions the bot and replies to the bot", async (t) => {
+  const capturedCalls = [];
+  t.mock.method(axios, "post", async (url, body) => {
+    capturedCalls.push(body);
+    return { data: { choices: [{ message: { content: "phan hoi ca hai dieu kien" } }] } };
+  });
+
+  const parent = makeMessage({ id: "1", authorId: BOT_ID, content: "cau hoi truoc do", reference: null });
+  const replies = [];
+  const msg = makeMessage({
+    id: "2",
+    authorId: "user-1",
+    content: `<@${BOT_ID}> vay con cai nay thi sao`,
+    reference: "1",
+  });
+  msg.reply = async (text) => { replies.push(text); };
+  msg.channel = { messages: { fetch: async () => parent } };
+
+  await handleMessage(client, msg);
+
+  assert.deepEqual(replies, ["phan hoi ca hai dieu kien"]);
+  assert.equal(capturedCalls.length, 1);
 });
 
 test("generateContent forwards reply history down to the OpenRouter call", async (t) => {
