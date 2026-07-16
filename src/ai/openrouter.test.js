@@ -15,7 +15,7 @@ test("getPrompt concatenates the TEXT prompt prefix with the message", () => {
   const result = getPrompt("TEXT", "xin chao");
   assert.equal(
     result,
-    "Hãy trả lời câu hỏi với thông tin chính xác, giọng điệu vui vẻ và hài hước: xin chao"
+    "Trả lời câu hỏi/tin nhắn sau, đi thẳng vào ý chính: xin chao"
   );
 });
 
@@ -46,9 +46,10 @@ test("callOpenRouter posts to the OpenRouter chat completions endpoint and retur
   assert.equal(capturedCalls.length, 1);
   assert.equal(capturedCalls[0].url, "https://openrouter.ai/api/v1/chat/completions");
   assert.equal(capturedCalls[0].body.model, MODELS.TEXT.name);
-  assert.deepEqual(capturedCalls[0].body.messages, [
-    { role: "user", content: "xin chao" },
-  ]);
+  assert.equal(capturedCalls[0].body.messages.length, 2);
+  assert.equal(capturedCalls[0].body.messages[0].role, "system");
+  assert.equal(capturedCalls[0].body.messages[1].role, "user");
+  assert.equal(capturedCalls[0].body.messages[1].content, "xin chao");
   assert.equal(capturedCalls[0].options.headers.Authorization, "Bearer test-key");
 });
 
