@@ -5,4 +5,3 @@ module.exports = {
   OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY,
   PORT: process.env.PORT || 3000,
 };
-//Tesst
