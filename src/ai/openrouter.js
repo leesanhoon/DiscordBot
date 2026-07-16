@@ -3,19 +3,19 @@ const { OPENROUTER_API_KEY } = require("../config/env");
 
 const MODELS = {
   TEXT: {
-    name: "meta-llama/llama-3.3-70b-instruct:free",
+    name: "poolside/laguna-xs-2.1:freee",
     config: { temperature: 0.7, top_p: 0.95, max_tokens: 4096 },
   },
   VISION: {
-    name: "google/gemma-4-31b-it:free",
+    name: "alibaba/happyhorse-1.1",
     config: { temperature: 0.4, top_p: 0.8, max_tokens: 2048 },
   },
   CREATIVE: {
-    name: "nousresearch/hermes-3-llama-3.1-405b:free",
+    name: "alibaba/happyhorse-1.1",
     config: { temperature: 0.9, top_p: 1.0, max_tokens: 8192 },
   },
   ANALYSIS: {
-    name: "qwen/qwen3-next-80b-a3b-instruct:free",
+    name: "tencent/hy3:free",
     config: { temperature: 0.3, top_p: 0.7, max_tokens: 16384 },
   },
 };
@@ -51,7 +51,7 @@ const callOpenRouter = async (messageType, content) => {
         Authorization: `Bearer ${OPENROUTER_API_KEY}`,
         "Content-Type": "application/json",
       },
-    }
+    },
   );
   return response.data.choices[0].message.content;
 };
