@@ -1,0 +1,16 @@
+name: Deploy to Mini PC
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    # Chi chay tren self-hosted runner cai dat tren mini PC (xem deploy/DEPLOY.md)
+    runs-on: [self-hosted, windows, minipc]
+    steps:
+      - name: Update and restart DiscordBot service
+        shell: powershell
+        run: |
+          & "C:\project\DiscordBot\deploy\update.ps1"
