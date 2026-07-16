@@ -8,7 +8,7 @@ on:
 jobs:
   deploy:
     # Chi chay tren self-hosted runner cai dat tren mini PC (xem deploy/DEPLOY.md)
-    runs-on: [self-hosted, windows, minipc]
+    runs-on: [self-hosted, Windows, x64, discordbot]
     steps:
       - name: Update and restart DiscordBot service
         shell: powershell
