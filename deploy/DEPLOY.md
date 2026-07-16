@@ -87,22 +87,37 @@ Repo đã có sẵn workflow `.github/workflows/deploy-minipc.yml` gọi `C:\pro
 
 ### Cài runner trên mini PC
 
-1. Vào repo trên GitHub → **Settings → Actions → Runners → New self-hosted runner** → chọn **Windows**, **x64**.
-2. Trang đó hiện sẵn 2 nhóm lệnh theo thứ tự — copy và chạy **lần lượt, đúng như hiển thị**, trong PowerShell quyền Administrator trên mini PC (ví dụ thư mục cài: `C:\Users\Administrator\actions-runner`):
+**Quan trọng: không cài runner bên trong thư mục user profile** (ví dụ `C:\Users\Administrator\actions-runner`). Windows Service mặc định chạy dưới tài khoản hệ thống ít quyền (`NT AUTHORITY\NETWORK SERVICE`), tài khoản này **không có quyền đọc `C:\Users\<tên-user>`** do giới hạn NTFS của Windows, service sẽ crash ngay khi khởi động với lỗi `UnauthorizedAccessException`. Luôn cài ở gốc ổ đĩa, ví dụ **`C:\actions-runner`**.
+
+1. Tạo thư mục và vào đó:
+   ```powershell
+   New-Item -ItemType Directory -Force -Path C:\actions-runner
+   cd C:\actions-runner
+   ```
+2. Vào repo trên GitHub → **Settings → Actions → Runners → New self-hosted runner** → chọn **Windows**, **x64**.
+3. Trang đó hiện sẵn 2 nhóm lệnh theo thứ tự — copy và chạy **lần lượt, đúng như hiển thị**, trong PowerShell quyền Administrator trên mini PC:
    - **Download**: tải file zip runner và giải nén bằng `Expand-Archive`
    - **Configure**: chạy `.\config.cmd` kèm token đăng ký riêng cho lần này (token chỉ có hiệu lực vài phút, phải lấy trực tiếp từ trang lúc đó, không dùng lại token cũ)
-3. Khi `config.cmd` hỏi:
+4. Khi `config.cmd` hỏi, trả lời:
    - **"Enter the name of the runner"** → Enter để dùng tên mặc định (tên máy)
    - **"Enter any additional labels"** → gõ `discordbot`
    - **"Enter name of work folder"** → Enter để dùng mặc định
-   - **"Would you like to run the runner as service?"** → gõ `Y` — bước này quan trọng nhất, nó tự tạo sẵn 1 Windows Service tên dạng `actions.runner.<org-repo>.<tên-máy>` (không có script `svc.cmd` riêng để cài sau như tài liệu cũ của GitHub, phiên bản hiện tại tích hợp thẳng vào `config.cmd`).
-4. Service tạo ra mặc định ở trạng thái **Stopped**, cần khởi động tay lần đầu và đặt tự khởi động cùng máy:
+   - **"Would you like to run the runner as service?"** → gõ `Y`
+   - **"User account to use for the service"** → gõ `.\Administrator` (không dùng mặc định `NT AUTHORITY\NETWORK SERVICE` — tài khoản đó không có quyền chạy `npm install`/`git pull` mà `update.ps1` cần)
+   - Nhập **mật khẩu** của tài khoản Administrator khi được hỏi
+
+   Không có script `svc.cmd` riêng để cài service sau như tài liệu cũ của GitHub — phiên bản runner hiện tại (2.335.x) tích hợp thẳng bước cài service vào trong `config.cmd`, chỉ hỏi 1 lần lúc cấu hình.
+
+5. Service thường tự khởi động ngay sau khi cấu hình xong. Kiểm tra:
    ```powershell
    Get-Service actions.runner.*
+   ```
+   Nếu vẫn `Stopped`, khởi động tay và đặt tự chạy cùng máy:
+   ```powershell
    Start-Service actions.runner.<tên-service-vừa-thấy>
    Set-Service actions.runner.<tên-service-vừa-thấy> -StartupType Automatic
    ```
-5. Xác nhận runner online: **Settings → Actions → Runners** sẽ thấy trạng thái **Idle** (màu xanh), với label `self-hosted`, `Windows`, `X64`, `discordbot`.
+6. Xác nhận runner online: **Settings → Actions → Runners** sẽ thấy trạng thái **Idle** (màu xanh), với label `self-hosted`, `Windows`, `X64`, `discordbot`.
 
 Từ giờ có thể đóng terminal thoải mái — runner chạy nền dưới dạng Windows Service, tự bật lại khi mini PC khởi động lại.
 
@@ -113,7 +128,7 @@ Push 1 commit bất kỳ lên `main`, vào tab **Actions** của repo trên GitH
 ### Quản lý runner service
 
 ```powershell
-cd C:\Users\Administrator\actions-runner
+cd C:\actions-runner
 
 # Xem trạng thái
 Get-Service actions.runner.*
@@ -128,6 +143,15 @@ Start-Service actions.runner.<ten-service>
 # Gỡ đăng ký hoàn toàn (lấy token remove mới từ Settings → Actions → Runners → bấm vào runner → Remove)
 .\config.cmd remove --token <token_remove_moi>
 ```
+
+### Xử lý lỗi thường gặp khi cài runner
+
+| Lỗi | Nguyên nhân | Cách sửa |
+|---|---|---|
+| `UnauthorizedAccessException: Access to the path 'C:\Users\...' is denied` trong `_diag\Runner_*.log`, service tự Stop ngay sau khi Start | Runner cài bên trong thư mục user profile (`C:\Users\<user>\...`), service account mặc định không đọc được | Gỡ đăng ký (`config.cmd remove`), chuyển thư mục ra `C:\actions-runner`, cấu hình lại từ đó |
+| Job trên GitHub Actions treo mãi ở "Waiting for a runner to pick up this job..." | Không có runner nào online khớp đủ label trong `runs-on` của workflow | Kiểm tra **Settings → Actions → Runners** — runner phải **Idle**; nếu **Offline**, service runner chưa chạy. Kiểm tra label đăng ký lúc `config.cmd` khớp đúng với `runs-on` trong `deploy-minipc.yml` |
+| `update.ps1` báo lỗi "Script nay can chay voi quyen Administrator" khi chạy qua job của GitHub Actions | Windows Service của runner đang chạy dưới tài khoản ít quyền (`NT AUTHORITY\NETWORK SERVICE`), không phải Administrator | Đổi tài khoản Log On của service sang Administrator: `services.msc` → tìm service runner → Properties → tab **Log On** → **This account** → `.\Administrator` + mật khẩu → Restart service. Hoặc gỡ và cấu hình lại, chọn `.\Administrator` ngay từ bước hỏi service account |
+| `./config.sh` hoặc `.\svc.cmd` báo "not recognized" | Nhầm lệnh — đó là script cho Linux/macOS hoặc phiên bản runner cũ | Trên Windows dùng `.\config.cmd`; phiên bản runner hiện tại không có `svc.cmd` riêng, cài service tích hợp sẵn trong `config.cmd` |
 
 ### Lưu ý bảo mật
 
