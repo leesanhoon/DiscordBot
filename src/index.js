@@ -23,6 +23,42 @@ const detectMessageType = (message, hasAttachments = false) => {
   return "TEXT"; // Default to text model
 };
 
+const MAX_REPLY_HISTORY = 3;
+
+const messageToHistoryEntry = (message, client) => ({
+  role: message.author.id === client.user.id ? "assistant" : "user",
+  content:
+    message.content ||
+    (message.attachments.size > 0 ? "[hình ảnh]" : "[tin nhắn trống]"),
+});
+
+const getReplyContext = async (msg, client) => {
+  const history = [];
+  const channel = msg.channel;
+  let current = msg;
+  let isReplyToBot = false;
+
+  for (let i = 0; i < MAX_REPLY_HISTORY; i++) {
+    if (!current.reference?.messageId) break;
+
+    let fetched;
+    try {
+      fetched = await channel.messages.fetch(current.reference.messageId);
+    } catch (error) {
+      break;
+    }
+
+    if (i === 0) {
+      isReplyToBot = fetched.author.id === client.user.id;
+    }
+
+    history.unshift(messageToHistoryEntry(fetched, client));
+    current = fetched;
+  }
+
+  return { isReplyToBot, history };
+};
+
 // Optimized message handling with OpenRouter
 const generateContent = async (message, msg) => {
   const messageType = detectMessageType(message, msg.attachments.size > 0);
@@ -107,4 +143,14 @@ const startBot = () => {
 };
 
 // Start the bot
-startBot();
+if (require.main === module) {
+  startBot();
+}
+
+module.exports = {
+  detectMessageType,
+  getReplyContext,
+  generateContent,
+  handleMessage,
+  startBot,
+};

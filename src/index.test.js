@@ -1,0 +1,104 @@
+process.env.DISCORD_TOKEN = "test-token";
+process.env.OPENROUTER_API_KEY = "test-key";
+
+const { test } = require("node:test");
+const assert = require("node:assert/strict");
+const { getReplyContext } = require("./index");
+
+const BOT_ID = "bot-1";
+const client = { user: { id: BOT_ID } };
+
+const makeMessage = ({ id, authorId, content, reference, hasAttachment = false }) => {
+  const message = {
+    id,
+    content,
+    author: { id: authorId, bot: authorId === BOT_ID },
+    attachments: { size: hasAttachment ? 1 : 0 },
+    reference: reference ? { messageId: reference } : null,
+  };
+  return message;
+};
+
+test("getReplyContext returns no history when the message has no reference", async () => {
+  const msg = makeMessage({ id: "1", authorId: "user-1", content: "hi", reference: null });
+  msg.channel = { messages: { fetch: async () => { throw new Error("should not fetch"); } } };
+
+  const result = await getReplyContext(msg, client);
+
+  assert.deepEqual(result, { isReplyToBot: false, history: [] });
+});
+
+test("getReplyContext detects a reply directly to the bot and builds one history entry", async () => {
+  const parent = makeMessage({ id: "1", authorId: BOT_ID, content: "phan hoi cu cua bot", reference: null });
+  const msg = makeMessage({ id: "2", authorId: "user-1", content: "tiep tuc di", reference: "1" });
+  msg.channel = {
+    messages: {
+      fetch: async (id) => {
+        assert.equal(id, "1");
+        return parent;
+      },
+    },
+  };
+
+  const result = await getReplyContext(msg, client);
+
+  assert.equal(result.isReplyToBot, true);
+  assert.deepEqual(result.history, [
+    { role: "assistant", content: "phan hoi cu cua bot" },
+  ]);
+});
+
+test("getReplyContext walks up to 3 messages, oldest first", async () => {
+  const messagesById = {
+    "1": makeMessage({ id: "1", authorId: "user-2", content: "tin thu nhat", reference: null }),
+    "2": makeMessage({ id: "2", authorId: BOT_ID, content: "tin thu hai", reference: "1" }),
+    "3": makeMessage({ id: "3", authorId: "user-2", content: "tin thu ba", reference: "2" }),
+  };
+  const msg = makeMessage({ id: "4", authorId: "user-2", content: "tin hien tai", reference: "3" });
+  msg.channel = { messages: { fetch: async (id) => messagesById[id] } };
+
+  const result = await getReplyContext(msg, client);
+
+  assert.equal(result.isReplyToBot, false);
+  assert.deepEqual(result.history, [
+    { role: "user", content: "tin thu nhat" },
+    { role: "assistant", content: "tin thu hai" },
+    { role: "user", content: "tin thu ba" },
+  ]);
+});
+
+test("getReplyContext stops early and keeps partial history when a fetch fails", async () => {
+  const parent = makeMessage({ id: "1", authorId: BOT_ID, content: "tin gan nhat", reference: "0" });
+  const msg = makeMessage({ id: "2", authorId: "user-1", content: "hoi tiep", reference: "1" });
+  msg.channel = {
+    messages: {
+      fetch: async (id) => {
+        if (id === "1") return parent;
+        throw new Error("tin nhan da bi xoa");
+      },
+    },
+  };
+
+  const result = await getReplyContext(msg, client);
+
+  assert.equal(result.isReplyToBot, true);
+  assert.deepEqual(result.history, [{ role: "assistant", content: "tin gan nhat" }]);
+});
+
+test("getReplyContext uses placeholders for empty-content messages", async () => {
+  const withAttachment = makeMessage({ id: "1", authorId: "user-1", content: "", reference: null, hasAttachment: true });
+  const empty = makeMessage({ id: "2", authorId: BOT_ID, content: "", reference: "1" });
+  const msg = makeMessage({ id: "3", authorId: "user-1", content: "gi vay", reference: "2" });
+  msg.channel = {
+    messages: {
+      fetch: async (id) => (id === "1" ? withAttachment : empty),
+    },
+  };
+
+  const result = await getReplyContext(msg, client);
+
+  assert.deepEqual(result.history, [
+    { role: "user", content: "[hình ảnh]" },
+    { role: "assistant", content: "[tin nhắn trống]" },
+  ]);
+});
