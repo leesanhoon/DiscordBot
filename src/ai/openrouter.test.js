@@ -62,3 +62,37 @@ test("generateReply builds the prompt, calls OpenRouter and returns the content"
 
   assert.equal(result, "ket qua");
 });
+
+test("callOpenRouter inserts history entries between the system and user messages", async (t) => {
+  const capturedCalls = [];
+  t.mock.method(axios, "post", async (url, body, options) => {
+    capturedCalls.push({ url, body, options });
+    return { data: { choices: [{ message: { content: "phan hoi" } }] } };
+  });
+
+  const history = [
+    { role: "user", content: "tin nhan cu" },
+    { role: "assistant", content: "phan hoi cu" },
+  ];
+
+  await callOpenRouter("TEXT", "xin chao", history);
+
+  const { messages } = capturedCalls[0].body;
+  assert.equal(messages.length, 4);
+  assert.equal(messages[0].role, "system");
+  assert.deepEqual(messages[1], { role: "user", content: "tin nhan cu" });
+  assert.deepEqual(messages[2], { role: "assistant", content: "phan hoi cu" });
+  assert.deepEqual(messages[3], { role: "user", content: "xin chao" });
+});
+
+test("callOpenRouter with no history behaves like before (system + user only)", async (t) => {
+  const capturedCalls = [];
+  t.mock.method(axios, "post", async (url, body, options) => {
+    capturedCalls.push({ url, body, options });
+    return { data: { choices: [{ message: { content: "phan hoi" } }] } };
+  });
+
+  await callOpenRouter("TEXT", "xin chao");
+
+  assert.equal(capturedCalls[0].body.messages.length, 2);
+});

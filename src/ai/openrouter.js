@@ -49,7 +49,7 @@ const buildMessageContent = (prompt, imageParts = []) => {
   return [{ type: "text", text: prompt }, ...imageParts];
 };
 
-const callOpenRouter = async (messageType, content) => {
+const callOpenRouter = async (messageType, content, history = []) => {
   const modelConfig = MODELS[messageType];
   const response = await axios.post(
     "https://openrouter.ai/api/v1/chat/completions",
@@ -57,6 +57,7 @@ const callOpenRouter = async (messageType, content) => {
       model: modelConfig.name,
       messages: [
         { role: "system", content: PERSONA },
+        ...history,
         { role: "user", content },
       ],
       ...modelConfig.config,
@@ -71,10 +72,10 @@ const callOpenRouter = async (messageType, content) => {
   return response.data.choices[0].message.content;
 };
 
-const generateReply = async (messageType, message, imageParts = []) => {
+const generateReply = async (messageType, message, imageParts = [], history = []) => {
   const prompt = getPrompt(messageType, message);
   const content = buildMessageContent(prompt, imageParts);
-  return callOpenRouter(messageType, content);
+  return callOpenRouter(messageType, content, history);
 };
 
 module.exports = {
